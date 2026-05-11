@@ -18,7 +18,8 @@ Chaque TP couvre une étape du pipeline ML, de l'exploration des données à la 
 │   ├── y_train.csv
 │   ├── y_val.csv
 │   └── y_test.csv
-├── TP1.ipynb     # TP1 — EDA & preprocessing initial
+├── TP1.ipynb       # TP1 — EDA & preprocessing initial
+├── TP2.ipynb       # TP2 — Baseline LogReg & métriques
 ├── .gitignore
 └── README.md
 ```
@@ -35,3 +36,17 @@ EDA du dataset Telco Customer Churn (7 043 clients × 21 colonnes) et split stra
 - Top prédicteurs : `Contract`, `InternetService`, `PaymentMethod`, `tenure`
 - Multicolinéarité détectée : `TotalCharges ≈ tenure × MonthlyCharges` (r = 0,9996)
 - Splits sauvegardés dans `data/` pour réutilisation au TP2
+
+## 📚 TP2 — Baseline Logistic Regression & Métriques
+
+**Notebook :** `TP2.ipynb`
+
+Construction d'un baseline de classification (régression logistique) avec pipeline scikit-learn complet (preprocessing + modèle), évaluation multi-métriques et interprétation des coefficients.
+
+**Résultats clés :**
+
+- Baseline LogReg @ seuil 0.5 : Accuracy 0.81, F1 0.62, ROC-AUC 0.85, PR-AUC 0.63 (vs Dummy 0.73)
+- Top features confirmant l'EDA : `tenure` (−1.32), `Contract`, `InternetService`
+- Modèle bien calibré (Brier 0.137, −30 % vs baseline aléatoire)
+- Seuil F1-optimal : 0.286 (gain marginal +0.01 vs seuil 0.5)
+- Anomalies détectées à corriger en TP3 : multicolinéarité `TotalCharges`/`tenure`/`MonthlyCharges`, 6 features redondantes `"No internet service"`
