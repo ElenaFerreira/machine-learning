@@ -85,3 +85,37 @@ GridSearchCV sur 2 modèles, optimisation du seuil selon une fonction de coût m
 - Top 3 features (permutation importance) : `tenure` (0.042), `Contract` (0.020), `InternetService` (0.013)
 - **Évaluation finale test set** : F1 0.5509, PR-AUC 0.6448, Recall 94.3%, **Gain métier 12 495 €** (recall 94 % = 265/281 churners détectés)
 - Modèle persisté dans `artifacts/best_model.joblib` + manifeste JSON pour la session 4 (API FastAPI)
+
+## 📚 TP5 — Segmentation client non-supervisée
+
+**Notebook :** `TP5.ipynb`
+
+Application de k-means et DBSCAN pour identifier des segments client sans utiliser la cible, visualisation PCA et profiling métier des clusters.
+
+**Résultats clés :**
+
+- Choix de K=4 (compromis elbow / silhouette / besoin métier — K=2 mathématiquement optimal mais trop pauvre côté business)
+- 4 clusters équilibrés (22-29% chacun), PCA 2D capturant 52.6% de variance
+- 4 personas identifiés et nommés :
+  - **Newcomers Fiber à risque** (27%, churn 57%) — cible prioritaire rétention
+  - **Téléphonie pure fidèles** (22%, churn 7%) — segment stable
+  - **Loyalists Fiber premium** (29%, churn 14%) — à protéger via upsell
+  - **Newcomers DSL standard** (22%, churn 26%) — levier qualité de service
+- DBSCAN inadapté au dataset (1 cluster mastodonte à 77% + 1 cluster à 22%) — confirme empiriquement que DBSCAN brille sur données géométriques, pas tabulaires homogènes
+- Convergence supervisé ↔ non-supervisé : le clustering retrouve les patterns du TP1 (effet de seuil tenure ≈ 25 mois, triplet à risque Month-to-month + Fiber + Electronic check)
+
+## 📚 TP6 — Réinjection du cluster comme feature
+
+**Notebook :** `TP6.ipynb`
+
+Évaluation rigoureuse "avec vs sans" la feature `cluster_id` (CV 5-fold + test), test PCA en amont du modèle, décision Tech Lead sur l'adoption ou le rejet de la feature.
+
+**Résultats clés :**
+
+- Pipeline anti-fuite : k-means fitté sur train uniquement, prédiction sur val/test
+- **CV 5-fold avec vs sans cluster** : ΔF1 = +0.0019 (3/5 folds négatifs, std des deltas = 0.0100 → non significatif), ΔPR-AUC = +0.0019
+- **Test set** : ΔF1 = -0.0043, ΔPR-AUC = -0.0130 — signe inversé entre CV et test → confirmation du bruit
+- **Décision : rejet de la feature cluster** (gain absent, variance accrue, dette technique non justifiée)
+- Bonus PCA(10) en amont HGBT : F1 0.6293 → 0.6111 (-0.018) — PCA contre-productive sur modèles non-linéaires avec features déjà propres
+- `kmeans.joblib` conservé pour la **segmentation marketing** (4 personas), pas pour le modèle prédictif
+- `best_model.joblib` du TP4 reste le modèle de production
