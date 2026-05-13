@@ -11,15 +11,17 @@ Chaque TP couvre une étape du pipeline ML, de l'exploration des données à la 
 ## 📁 Structure du repo
 
 ```
-├── data/       # Splits train val/test (générés au TP1)
-│   ├── X_train.csv
-│   ├── X_val.csv
-│   ├── X_test.csv
-│   ├── y_train.csv
-│   ├── y_val.csv
-│   └── y_test.csv
-├── TP1.ipynb       # TP1 — EDA & preprocessing initial
-├── TP2.ipynb       # TP2 — Baseline LogReg & métriques
+├── data/                       # Splits TP1 + splits featurisés TP3
+│   ├── X_train.csv, X_val.csv, X_test.csv
+│   ├── y_train.csv, y_val.csv, y_test.csv
+│   └── X_train_fe.csv, X_val_fe.csv, X_test_fe.csv
+├── artifacts/                  # Best model + manifeste (TP4)
+│   ├── best_model.joblib
+│   └── manifest.json
+├── TP1.ipynb                   # EDA & preprocessing
+├── TP2.ipynb                   # Baseline LogReg & métriques
+├── TP3.ipynb                   # Pipeline pro & course de modèles (S2 matin)
+├── TP4.ipynb                   # Tuning, seuil métier & best model (S2 après-midi)
 ├── .gitignore
 └── README.md
 ```
