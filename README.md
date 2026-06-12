@@ -11,20 +11,33 @@ Chaque TP couvre une étape du pipeline ML, de l'exploration des données à la 
 ## 📁 Structure du repo
 
 ```
-├── data/                              # Splits TP1 + splits featurisés TP3
+├── data/                              # Splits + featurisés
 │   ├── X_train.csv, X_val.csv, X_test.csv
 │   ├── y_train.csv, y_val.csv, y_test.csv
 │   └── X_train_fe.csv, X_val_fe.csv, X_test_fe.csv
 ├── artifacts/
-│   ├── best_model.joblib              # Modèle de production (TP4)
-│   ├── manifest.json                  # Métadonnées du best model (TP4)
-│   └── kmeans.joblib                  # K-means pour segmentation marketing (TP6)
-├── TP1.ipynb                          # EDA & preprocessing
-├── TP2.ipynb                          # Baseline LogReg & métriques
-├── TP3.ipynb                          # Pipeline pro & course de modèles (S2 matin)
-├── TP4.ipynb                          # Tuning, seuil métier & best model (S2 après-midi)
-├── TP5.ipynb                          # Segmentation non-supervisée (S3 matin)
-├── TP6.ipynb                          # Cluster as feature (S3 après-midi)
+│   ├── best_model.joblib              # Modèle de production
+│   ├── manifest.json                  # Métadonnées du best model
+│   └── kmeans.joblib                  # K-means pour segmentation marketing
+├── churn_api/                         # API FastAPI déployable
+│   ├── app/
+│   │   ├── config.py
+│   │   ├── schemas.py
+│   │   ├── model.py
+│   │   └── main.py
+│   ├── tests/
+│   │   └── test_api.py
+│   ├── artifacts/                     # Copie locale du modèle pour l'API
+│   ├── requirements.txt
+│   └── README.md
+├── TP1.ipynb                          # EDA & preprocessing (S1)
+├── TP2.ipynb                          # Baseline LogReg & métriques (S1)
+├── TP3.ipynb                          # Pipeline pro & course de modèles (S2)
+├── TP4.ipynb                          # Tuning, seuil métier & best model (S2)
+├── TP5.ipynb                          # Segmentation non-supervisée (S3)
+├── TP6.ipynb                          # Cluster as feature (S3)
+├── TP7.ipynb                          # API FastAPI — manuel pas-à-pas (S4)
+├── TP8.ipynb                          # Tests API + OpenAPI (S4)
 ├── .gitignore
 └── README.md
 ```
@@ -122,3 +135,37 @@ Application de k-means et DBSCAN pour identifier des segments client sans utilis
 - Bonus PCA(10) en amont HGBT : F1 0.6293 → 0.6111 (-0.018) — PCA contre-productive sur modèles non-linéaires avec features déjà propres
 - `kmeans.joblib` conservé pour la **segmentation marketing** (4 personas), pas pour le modèle prédictif
 - `best_model.joblib` du TP4 reste le modèle de production
+
+## 📚 TP7 — Du modèle au service web : construire l'API
+
+**Notebook :** `TP7.ipynb` (manuel pas-à-pas) — **Projet :** `churn_api/`
+
+Construction d'une API FastAPI pour exposer le best model du TP4. Architecture en couches (schemas / model / routes), validation Pydantic stricte, chargement modèle one-shot au démarrage via lifespan, doc auto-générée via Swagger.
+
+**Résultats clés :**
+
+- 5 endpoints REST : `/` (redirect docs), `/health`, `/model-info`, `/predict`, `/predict-batch`
+- Validation Pydantic stricte sur 19 features (Literal pour les enums, Field bounds pour les numériques)
+- Pattern `lifespan` : modèle HGBT chargé une seule fois au démarrage (pas par requête)
+- Séparation logique métier (`model.py`) / routes HTTP (`main.py`) / validation I/O (`schemas.py`)
+- `add_engineered_features` synchronisée avec celle du TP3 (sync critique entre training et inférence)
+- API testable via Swagger UI sur http://localhost:8000/docs
+- Sortie cohérente entre CLI local et environnement Colab (reproductibilité totale)
+
+## 📚 TP8 — Tester l'API : pytest, TestClient, OpenAPI
+
+**Notebook :** `TP8.ipynb`
+
+Tests automatisés de l'API du TP7 via `TestClient` de FastAPI, validation de la gestion d'erreurs Pydantic, exploration du schéma OpenAPI auto-généré.
+
+**Résultats clés :**
+
+- 4 catégories d'erreurs interceptées en 422 (jamais de 500 sur input invalide) :
+  - Champ manquant → message localisé (`loc: ['body', 'tenure']`)
+  - Valeur hors enum Literal → liste des valeurs acceptées
+  - Hors bornes `Field(ge=, le=)` → contrainte explicite
+  - Mauvais type → coercion intelligente Pydantic
+- Schéma OpenAPI auto-généré déclare 200 + 422 pour chaque endpoint, sans doc manuelle
+- `$ref` vers `ClientFeatures` partagée (pattern DRY appliqué à la doc)
+- Pattern batch endpoint : 1000× plus rapide qu'une boucle de requêtes individuelles
+- **10 tests pytest passent** : 5 endpoints + 4 cas d'erreur + schéma OpenAPI
