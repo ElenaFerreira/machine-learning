@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ipynb_checkpoints/
+mlruns/
+
+# OS
+.DS_Store
+Thumbs.db
