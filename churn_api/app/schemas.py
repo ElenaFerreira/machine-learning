@@ -87,3 +87,18 @@ class ModelInfoResponse(BaseModel):
     sklearn_version: str
     metrics_test: dict
     feature_columns: list[str]
+
+
+class MetricsResponse(BaseModel):
+    """Recent traffic stats from the prediction log."""
+    total_predictions: int
+    churn_rate_predicted: float
+    avg_churn_probability: float
+
+
+class DriftCheckResponse(BaseModel):
+    """Drift detection status against the training baseline."""
+    status: Literal["ok", "warning", "critical", "no_data", "insufficient_data"]
+    n_predictions_analyzed: int
+    drift_scores: dict
+    thresholds: dict

@@ -109,3 +109,41 @@ def test_openapi_schema(client):
     schema = r.json()
     assert schema["info"]["title"]
     assert "/predict" in schema["paths"]
+
+
+def test_metrics_empty_or_populated(client):
+    """/metrics répond même sans prédictions (renvoie des zéros)."""
+    r = client.get("/metrics")
+    assert r.status_code == 200
+    body = r.json()
+    assert "total_predictions" in body
+    assert "churn_rate_predicted" in body
+    assert "avg_churn_probability" in body
+
+
+def test_drift_check_returns_valid_status(client):
+    """/drift-check renvoie toujours un status valide."""
+    r = client.get("/drift-check")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] in ("insufficient_data", "ok", "warning", "critical", "no_data")
+    assert "thresholds" in body
+    assert body["thresholds"]["ok"] == 0.10
+    assert body["thresholds"]["warning"] == 0.25
+
+
+def test_predict_increments_log(client, sample_client):
+    """/predict alimente bien le log de monitoring."""
+    # Take a snapshot of current total
+    r1 = client.get("/metrics")
+    before = r1.json()["total_predictions"]
+    
+    # Fire 3 predictions
+    for _ in range(3):
+        r = client.post("/predict", json=sample_client)
+        assert r.status_code == 200
+    
+    # Verify the counter has increased
+    r2 = client.get("/metrics")
+    after = r2.json()["total_predictions"]
+    assert after >= before + 3

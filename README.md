@@ -19,15 +19,18 @@ Chaque TP couvre une étape du pipeline ML, de l'exploration des données à la 
 │   ├── best_model.joblib              # Modèle de production
 │   ├── manifest.json                  # Métadonnées du best model
 │   └── kmeans.joblib                  # K-means pour segmentation marketing
-├── churn_api/                         # API FastAPI déployable
+├── churn_api/                         # API FastAPI + monitoring (déployable)
 │   ├── app/
-│   │   ├── config.py
-│   │   ├── schemas.py
-│   │   ├── model.py
-│   │   └── main.py
+│   │   ├── config.py                  # Paths, seuils PSI, version API
+│   │   ├── schemas.py                 # Pydantic I/O validation
+│   │   ├── model.py                   # ModelService + feature engineering
+│   │   ├── monitoring.py              # Logging + PSI + drift detection (S5)
+│   │   └── main.py                    # Endpoints FastAPI
 │   ├── tests/
-│   │   └── test_api.py
-│   ├── artifacts/                     # Copie locale du modèle pour l'API
+│   │   └── test_api.py                # 13 tests pytest (10 S4 + 3 S5)
+│   ├── artifacts/                     # Copie locale (modèle + baseline)
+│   ├── monitoring/                    # Log JSONL des prédictions (généré à l'usage)
+│   ├── TP10.ipynb                     # Démo monitoring end-to-end (S5)
 │   ├── requirements.txt
 │   └── README.md
 ├── TP1.ipynb                          # EDA & preprocessing (S1)
@@ -38,8 +41,9 @@ Chaque TP couvre une étape du pipeline ML, de l'exploration des données à la 
 ├── TP6.ipynb                          # Cluster as feature (S3)
 ├── TP7.ipynb                          # API FastAPI — manuel pas-à-pas (S4)
 ├── TP8.ipynb                          # Tests API + OpenAPI (S4)
+├── TP9.ipynb                          # Drift detection PSI + KS test (S5)
 ├── .gitignore
-└── README.md
+└── READM
 ```
 
 ## 📚 TP1 — EDA & Preprocessing initial
@@ -169,3 +173,36 @@ Tests automatisés de l'API du TP7 via `TestClient` de FastAPI, validation de la
 - `$ref` vers `ClientFeatures` partagée (pattern DRY appliqué à la doc)
 - Pattern batch endpoint : 1000× plus rapide qu'une boucle de requêtes individuelles
 - **10 tests pytest passent** : 5 endpoints + 4 cas d'erreur + schéma OpenAPI
+
+## 📚 TP9 — Détection de drift : PSI & KS test (S5)
+
+**Notebook :** `TP9.ipynb`
+
+Implémentation des métriques de détection de data drift (PSI et KS test) à la main, simulation de 3 scénarios production (no/mild/severe drift), construction d'un tableau de drift et d'une heatmap "feu tricolore".
+
+**Résultats clés :**
+
+- `psi_numeric` et `psi_categorical` implémentés à la main (formule industrie)
+- Smoke test PSI(X, X) = 0.000000 ✓ (calibration validée)
+- 3 scénarios simulés (MonthlyCharges means : 64.69 → 71.15 → 84.09)
+- Drift table : `tenure` PSI 0.024 → 0.185 → 2.080, `MonthlyCharges` 0.068 → 0.102 → 0.338, `Contract` 0.003 → 0.003 → 0.449
+- KS test convergent avec PSI : p-values > 0.05 en no_drift, p ≈ 0 en mild/severe
+- Heatmap diagnostique en 1 coup d'œil : 🟢 ok / 🟡 warning / 🔴 critical
+- Insight clé : PSI = métrique amplitude lisible business, KS = test statistique formel → en prod, on utilise les deux
+
+## 📚 TP10 — Monitoring d'API : logging + drift detection (S5)
+
+**Notebook :** `churn_api/TP10.ipynb` — **Extension du projet :** `churn_api/`
+
+Extension de l'API S4 avec un système de monitoring complet : logging JSONL des prédictions, endpoint `/metrics` (3 indicateurs simples), endpoint `/drift-check` (PSI sur 6 features vs baseline), bumping de la version API à 1.1.0.
+
+**Résultats clés :**
+
+- `app/monitoring.py` créé : 6 fonctions (`log_prediction`, `read_recent_logs`, `psi_numeric`, `psi_categorical`, `compute_drift`, `status_from_max_psi`)
+- 2 nouveaux endpoints REST : `/metrics` et `/drift-check` (tag `monitoring` dans Swagger)
+- Format JSONL append-only pour les logs (timestamp UTC ISO8601, features + prédiction par ligne)
+- `baseline_train.csv` snapshot du train pour calcul PSI en référence figée
+- Status agrégé : `ok` / `warning` / `critical` / `insufficient_data`
+- **13/13 tests pytest passent** (10 S4 + 3 S5 sur metrics, drift_check, log increment)
+- Démo end-to-end validée : 50 requêtes normales → puis 50 driftées → le système alerte sur Contract et MonthlyCharges
+- Insight clé : à 50 lignes, le PSI est bruité (faux positifs sur `TotalCharges`) → en prod, min_samples=500+ recommandé
